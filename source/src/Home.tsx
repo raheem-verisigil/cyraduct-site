@@ -191,7 +191,7 @@ export default function Home() {
       <header className="sticky top-0 z-50 border-b border-white/10 bg-[#07111f]/90 backdrop-blur-xl">
         <div className="site-container flex h-16 items-center justify-between">
           <a href="#top" className="flex items-center gap-3 font-semibold tracking-tight">
-            <span className="brand-mark">C</span><span className="text-lg">Cyraduct</span>
+            <img src="/logo-mark.png" alt="Cyraduct" className="h-8 w-auto" /><span className="text-lg">Cyraduct</span>
           </a>
           <nav className="hidden items-center gap-6 text-sm text-slate-300 md:flex">
             <a href="#model" className="nav-link">How it works</a>
@@ -430,7 +430,7 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="border-t border-white/10 bg-[#07111f]"><div className="site-container flex flex-col gap-5 py-8 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between"><div><span className="font-semibold text-slate-300">Cyraduct</span> · open, vendor-neutral reliance and consequence-boundary protocol for AI agent actions.</div><div className="flex gap-5"><a href="#model" className="hover:text-slate-200">Protocol</a><a href="#verify" className="hover:text-slate-200">Verify</a><a href={GITHUB_URL} target="_blank" rel="noreferrer" className="hover:text-slate-200">GitHub</a></div></div></footer>
+      <footer className="border-t border-white/10 bg-[#07111f]"><div className="site-container flex flex-col gap-5 py-8 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3"><img src="/logo-mark.png" alt="Cyraduct" className="h-6 w-auto opacity-90" /><span><span className="font-semibold text-slate-300">Cyraduct</span> · open, vendor-neutral reliance and consequence-boundary protocol for AI agent actions.</span></div><div className="flex gap-5"><a href="#model" className="hover:text-slate-200">Protocol</a><a href="#verify" className="hover:text-slate-200">Verify</a><a href="mailto:hello@cyraduct.com" className="hover:text-slate-200">Contact</a><a href={GITHUB_URL} target="_blank" rel="noreferrer" className="hover:text-slate-200">GitHub</a></div></div></footer>
     </div>
   );
 }
