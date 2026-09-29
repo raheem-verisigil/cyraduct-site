@@ -430,7 +430,70 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="border-t border-white/10 bg-[#07111f]"><div className="site-container flex flex-col gap-5 py-8 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between"><div><span className="font-semibold text-slate-300">Cyraduct</span> · open, vendor-neutral reliance and consequence-boundary protocol for AI agent actions.</div><div className="flex gap-5"><a href="#model" className="hover:text-slate-200">Protocol</a><a href="#verify" className="hover:text-slate-200">Verify</a><a href={GITHUB_URL} target="_blank" rel="noreferrer" className="hover:text-slate-200">GitHub</a></div></div></footer>
+      
+<section id="partners" className="site-container py-24">
+  <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 md:p-12">
+
+    <p className="text-sm uppercase tracking-[0.25em] text-cyan-400">
+      Cyraduct Ecosystem
+    </p>
+
+    <h2 className="mt-4 text-3xl font-semibold text-white md:text-5xl">
+      Partner with the reliability layer for autonomous AI systems.
+    </h2>
+
+    <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
+      Cyraduct collaborates with AI builders, infrastructure companies,
+      security teams, researchers, and standards communities to create
+      transparent operational boundaries for AI agents.
+    </p>
+
+    <div className="mt-10 grid gap-6 md:grid-cols-3">
+
+      <div className="rounded-2xl border border-white/10 bg-black/20 p-6">
+        <h3 className="text-xl font-semibold text-white">
+          AI Platform Partners
+        </h3>
+        <p className="mt-3 text-slate-400">
+          Integrate Cyraduct into AI agents, orchestration systems,
+          and enterprise AI workflows.
+        </p>
+      </div>
+
+      <div className="rounded-2xl border border-white/10 bg-black/20 p-6">
+        <h3 className="text-xl font-semibold text-white">
+          Security & Governance
+        </h3>
+        <p className="mt-3 text-slate-400">
+          Build stronger AI assurance, evidence, auditability,
+          and operational trust.
+        </p>
+      </div>
+
+      <div className="rounded-2xl border border-white/10 bg-black/20 p-6">
+        <h3 className="text-xl font-semibold text-white">
+          Research Partners
+        </h3>
+        <p className="mt-3 text-slate-400">
+          Help shape open protocols for reliable autonomous systems.
+        </p>
+      </div>
+
+    </div>
+
+    <div className="mt-10">
+      <a
+        href="mailto:partners@cyraduct.com"
+        className="inline-flex rounded-xl bg-cyan-400 px-6 py-3 font-semibold text-black hover:bg-cyan-300"
+      >
+        Become a Cyraduct Partner
+      </a>
+    </div>
+
+  </div>
+</section>
+
+<footer className="border-t border-white/10 bg-[#07111f]"><div className="site-container flex flex-col gap-5 py-8 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between"><div><span className="font-semibold text-slate-300">Cyraduct</span> · open, vendor-neutral reliance and consequence-boundary protocol for AI agent actions.</div><div className="flex gap-5"><a href="#model" className="hover:text-slate-200">Protocol</a><a href="#verify" className="hover:text-slate-200">Verify</a><a href={GITHUB_URL} target="_blank" rel="noreferrer" className="hover:text-slate-200">GitHub</a></div></div></footer>
     </div>
   );
 }
