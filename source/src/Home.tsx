@@ -79,6 +79,49 @@ const retentionLayers = [
   ["Conformance ecosystem", "Create a path for infrastructure vendors and agent platforms to demonstrate Cyraduct compatibility."],
 ];
 
+type RuntimeResult = {
+  ok: boolean;
+  decision?: string;
+  reasons?: string[];
+  signals?: Record<string, unknown>;
+  error?: string;
+};
+
+function decisionClass(decision?: string) {
+  if (decision === "allow") return "text-cyan-300";
+  if (decision === "hold" || decision === "throttle") return "text-amber-300";
+  if (decision === "reauthorize") return "text-blue-300";
+  if (decision === "deny" || decision === "terminate") return "text-red-300";
+  return "text-slate-400";
+}
+
+function RuntimeSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: [string, string][];
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-xl border border-white/10 bg-[#0d3564] px-4 py-3 text-sm text-slate-100 outline-none focus:border-cyan-300/40"
+      >
+        {options.map(([optionValue, optionLabel]) => (
+          <option key={optionValue} value={optionValue}>{optionLabel}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export default function Home() {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<unknown>(null);
@@ -87,6 +130,12 @@ export default function Home() {
   const [receiptId, setReceiptId] = useState("");
   const [verification, setVerification] = useState<VerificationState>({ status: "idle" });
   const [tamperTest, setTamperTest] = useState<VerificationState>({ status: "idle" });
+  const [runtimeAuthority, setRuntimeAuthority] = useState<"present" | "missing" | "unknown" | "delegated">("present");
+  const [runtimeState, setRuntimeState] = useState<"current" | "changed">("current");
+  const [runtimePressure, setRuntimePressure] = useState<"normal" | "high" | "retries">("normal");
+  const [runtimeReversibility, setRuntimeReversibility] = useState<"reversible" | "irreversible">("reversible");
+  const [runtimeRunning, setRuntimeRunning] = useState(false);
+  const [runtimeResult, setRuntimeResult] = useState<RuntimeResult | null>(null);
 
   useEffect(() => {
     const check = async (path: string, key: "publicKey" | "fixtures" | "openapi") => {
@@ -184,6 +233,68 @@ export default function Home() {
     }
   };
 
+  const runRuntimeEvaluation = async () => {
+    setRuntimeRunning(true);
+    setRuntimeResult(null);
+
+    const stateChanged = runtimeState === "changed";
+
+    const runtimeStatePayload: Record<string, unknown> =
+      runtimePressure === "high"
+        ? { actions_last_minute: 75 }
+        : runtimePressure === "retries"
+          ? { retries_last_minute: 6 }
+          : { actions_last_minute: 8 };
+
+    if (stateChanged) {
+      runtimeStatePayload.authorized_state_version = "state-17";
+      runtimeStatePayload.current_state_version = "state-18";
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/v1/runtime/evaluate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agent_id: "cyraduct-public-demo",
+          action_type: "update_customer_record",
+          consequence_class: "generic_tool_call",
+          target: "crm",
+          resource: "customer/123",
+          reversibility: runtimeReversibility,
+          authority: runtimeAuthority,
+          policy_pack: "generic",
+          payload: {},
+          runtime_state: runtimeStatePayload,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setRuntimeResult({
+          ok: false,
+          error: data?.detail || "Live runtime request failed.",
+        });
+        return;
+      }
+
+      setRuntimeResult({
+        ok: true,
+        decision: data.decision,
+        reasons: data.reasons || [],
+        signals: data.signals || {},
+      });
+    } catch {
+      setRuntimeResult({
+        ok: false,
+        error: "The live CYRADUCT runtime could not be reached from this browser.",
+      });
+    } finally {
+      setRuntimeRunning(false);
+    }
+  };
+
   const resultSummary = summarizeConformance(result);
 
   return (
@@ -194,6 +305,7 @@ export default function Home() {
             <img src="/logo-mark.png" alt="Cyraduct" className="h-8 w-auto" /><span className="text-lg">Cyraduct</span>
           </a>
           <nav className="hidden items-center gap-6 text-sm text-slate-300 md:flex">
+            <a href="#try" className="nav-link">Try CYRADUCT</a>
             <a href="#model" className="nav-link">How it works</a>
             <a href="#verify" className="nav-link">Verify</a>
             <a href="#status" className="nav-link">Status</a>
@@ -202,7 +314,7 @@ export default function Home() {
             <a href="#developers" className="nav-link">Developers</a>
             <a href={GITHUB_URL} target="_blank" rel="noreferrer" className="nav-link inline-flex items-center gap-1">GitHub <ExternalLink size={12} /></a>
           </nav>
-          <a href="#verify" className="hidden rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-100 sm:inline-flex">Prove the boundary</a>
+          <a href="#try" className="hidden rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-100 sm:inline-flex">Try CYRADUCT</a>
         </div>
       </header>
 
@@ -234,8 +346,8 @@ export default function Home() {
                 AI can decide to act. Cyraduct defines the conditions under which another system may rely on that action — with signed receipts, bounded expiry, independent revocation, and enforceable verification.
               </p>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                <a href="#verify" className="cta-primary">Prove the boundary <ArrowRight size={17} /></a>
-                <a href={GITHUB_URL} target="_blank" rel="noreferrer" className="cta-secondary">Read the protocol <Github size={17} /></a>
+                <a href="#try" className="cta-primary">Try CYRADUCT <ArrowRight size={17} /></a>
+                <a href="#verify" className="cta-secondary">Prove the boundary</a>
               </div>
               <div className="mt-7 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-400">
                 <span className="inline-flex items-center gap-2"><Check size={15} className="text-cyan-300" /> Ed25519-signed</span>
@@ -257,6 +369,119 @@ export default function Home() {
                   <span className="text-slate-500">signature</span><span className="text-cyan-300">Ed25519 ✓</span>
                 </div>
                 <div className="mt-6 border-t border-white/10 pt-5 text-slate-400"><span className="text-cyan-300">→</span> downstream sink checks receipt before execution</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="try" className="section-shell border-b border-white/10 bg-[#06111f]">
+          <div className="site-container">
+            <div className="grid gap-10 lg:grid-cols-[.9fr_1.1fr] lg:items-start">
+              <div>
+                <SectionIntro
+                  kicker="Try CYRADUCT"
+                  title="See the execution decision change in real time."
+                  text="Change one runtime condition and CYRADUCT evaluates the proposed action against current authority, state, reversibility and runtime pressure."
+                />
+                <div className="mt-7 grid gap-3 sm:grid-cols-2">
+                  <div className="dark-card p-5">
+                    <div className="text-sm font-semibold text-slate-100">The action</div>
+                    <div className="mt-2 font-mono text-xs text-slate-400">update_customer_record</div>
+                    <div className="mt-1 text-xs text-slate-500">CRM · customer/123</div>
+                  </div>
+                  <div className="dark-card p-5">
+                    <div className="text-sm font-semibold text-slate-100">Consequence</div>
+                    <div className="mt-2 font-mono text-xs text-slate-400">generic_tool_call</div>
+                    <div className="mt-1 text-xs text-slate-500">Evaluated before execution</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="dark-card p-6 sm:p-7">
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <RuntimeSelect
+                    label="Authority"
+                    value={runtimeAuthority}
+                    onChange={(value) => setRuntimeAuthority(value as typeof runtimeAuthority)}
+                    options={[
+                      ["present", "Present"],
+                      ["missing", "Missing"],
+                      ["unknown", "Unknown"],
+                      ["delegated", "Delegated"],
+                    ]}
+                  />
+                  <RuntimeSelect
+                    label="State"
+                    value={runtimeState}
+                    onChange={(value) => setRuntimeState(value as typeof runtimeState)}
+                    options={[
+                      ["current", "Current"],
+                      ["changed", "Changed after authorization"],
+                    ]}
+                  />
+                  <RuntimeSelect
+                    label="Runtime pressure"
+                    value={runtimePressure}
+                    onChange={(value) => setRuntimePressure(value as typeof runtimePressure)}
+                    options={[
+                      ["normal", "Normal"],
+                      ["high", "75 actions / minute"],
+                      ["retries", "6 retries / minute"],
+                    ]}
+                  />
+                  <RuntimeSelect
+                    label="Reversibility"
+                    value={runtimeReversibility}
+                    onChange={(value) => setRuntimeReversibility(value as typeof runtimeReversibility)}
+                    options={[
+                      ["reversible", "Reversible"],
+                      ["irreversible", "Irreversible"],
+                    ]}
+                  />
+                </div>
+
+                <button
+                  onClick={runRuntimeEvaluation}
+                  disabled={runtimeRunning}
+                  className="cta-primary mt-6 w-full justify-center disabled:cursor-wait disabled:opacity-60"
+                >
+                  {runtimeRunning ? "Evaluating live runtime…" : "Evaluate action"}
+                  <ArrowRight size={17} />
+                </button>
+
+                <div className="mt-7 rounded-2xl border border-white/10 bg-[#07111f] p-6">
+                  <div className="section-kicker">Runtime decision</div>
+
+                  {runtimeResult ? (
+                    runtimeResult.ok ? (
+                      <>
+                        <div className={`mt-3 text-4xl font-semibold tracking-[-.04em] ${decisionClass(runtimeResult.decision)}`}>
+                          {String(runtimeResult.decision || "unknown").toUpperCase()}
+                        </div>
+                        <p className="mt-4 text-sm leading-6 text-slate-400">
+                          {runtimeResult.reasons?.[0] || "The live runtime returned a decision."}
+                        </p>
+                        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                          {Object.entries(runtimeResult.signals || {}).map(([key, value]) => (
+                            <div key={key} className="rounded-xl border border-white/5 bg-black/20 p-3">
+                              <div className="text-[10px] uppercase tracking-[.12em] text-slate-600">{key}</div>
+                              <div className="mt-1 font-mono text-xs text-slate-300">{String(value)}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="mt-3 text-sm leading-6 text-red-300">{runtimeResult.error}</div>
+                    )
+                  ) : (
+                    <>
+                      <div className="mt-3 text-4xl font-semibold tracking-[-.04em] text-slate-500">READY</div>
+                      <p className="mt-4 text-sm leading-6 text-slate-400">
+                        Change a condition above and evaluate the action against the live CYRADUCT runtime.
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
