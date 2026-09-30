@@ -79,49 +79,6 @@ const retentionLayers = [
   ["Conformance ecosystem", "Create a path for infrastructure vendors and agent platforms to demonstrate Cyraduct compatibility."],
 ];
 
-type RuntimeResult = {
-  ok: boolean;
-  decision?: string;
-  reasons?: string[];
-  signals?: Record<string, unknown>;
-  error?: string;
-};
-
-function decisionClass(decision?: string) {
-  if (decision === "allow") return "text-cyan-300";
-  if (decision === "hold" || decision === "throttle") return "text-amber-300";
-  if (decision === "reauthorize") return "text-blue-300";
-  if (decision === "deny" || decision === "terminate") return "text-red-300";
-  return "text-slate-400";
-}
-
-function RuntimeSelect({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: [string, string][];
-}) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-xl border border-white/10 bg-[#0d3564] px-4 py-3 text-sm text-slate-100 outline-none focus:border-cyan-300/40"
-      >
-        {options.map(([optionValue, optionLabel]) => (
-          <option key={optionValue} value={optionValue}>{optionLabel}</option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
 export default function Home() {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<unknown>(null);
@@ -130,12 +87,6 @@ export default function Home() {
   const [receiptId, setReceiptId] = useState("");
   const [verification, setVerification] = useState<VerificationState>({ status: "idle" });
   const [tamperTest, setTamperTest] = useState<VerificationState>({ status: "idle" });
-  const [runtimeAuthority, setRuntimeAuthority] = useState<"present" | "missing" | "unknown" | "delegated">("present");
-  const [runtimeState, setRuntimeState] = useState<"current" | "changed">("current");
-  const [runtimePressure, setRuntimePressure] = useState<"normal" | "high" | "retries">("normal");
-  const [runtimeReversibility, setRuntimeReversibility] = useState<"reversible" | "irreversible">("reversible");
-  const [runtimeRunning, setRuntimeRunning] = useState(false);
-  const [runtimeResult, setRuntimeResult] = useState<RuntimeResult | null>(null);
 
   useEffect(() => {
     const check = async (path: string, key: "publicKey" | "fixtures" | "openapi") => {
@@ -197,6 +148,48 @@ export default function Home() {
     }
   };
 
+  const createLiveTestReceipt = async () => {
+    setVerification({ status: "checking" });
+    try {
+      const response = await fetch(`${API_URL}/v1/attested/evaluate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agent_id: "cyraduct-public-demo",
+          principal: "demo:public",
+          framework: "cyraduct-site",
+          action_type: "update_vendor_bank_details",
+          consequence_class: "vendor_master_change",
+          purpose: "safe public Finance Guard demonstration",
+          consumer: "demo:sink",
+          jurisdiction: "US",
+          policy_pack: "finance_vendor_change_v1",
+          payload: {
+            vendor_id: "demo-vendor-1842",
+            old_account_fingerprint: "sha256:demo-old",
+            new_account_fingerprint: "sha256:demo-new",
+            callback_verified: true,
+            callback_channel_preexisting: true,
+            reviewer_id: "public-demo-reviewer",
+            new_beneficiary: true,
+            dual_approval: true,
+            sender_domain_match: true,
+          },
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.receipt?.receipt_id) {
+        setVerification({ status: "error", title: "Live receipt was not issued", text: data?.decision?.reasons?.join("; ") || JSON.stringify(data) });
+        return;
+      }
+      const id = data.receipt.receipt_id;
+      setReceiptId(id);
+      setVerification({ status: "valid", title: "Live receipt issued", text: "The public API evaluated a safe Finance Guard test action and returned a signed receipt. Verify it again or run the action-mismatch refusal test.", data });
+    } catch {
+      setVerification({ status: "error", title: "Live API unavailable", text: "The public API could not issue the safe demonstration receipt." });
+    }
+  };
+
   const runTamperTest = async () => {
     const id = receiptId.trim();
     if (!id) {
@@ -219,79 +212,17 @@ export default function Home() {
         },
       );
       const data = await response.json();
-      const refused = data?.reason === "action_mismatch" || data?.executed === false;
+      const refused = data?.reason === "action_binding_mismatch" && data?.executed === false;
       setTamperTest({
         status: refused ? "valid" : "invalid",
         title: refused ? "Boundary refused the altered action" : "Boundary result returned",
         text: refused
-          ? "The test changes the action presented to the broker. A real sink would not be reached when the receipt/action binding fails. The sink URL is a reserved example.invalid address and is never intended to execute anything."
+          ? "The test changes the action presented to the broker. The broker returned the exact action-binding refusal and a real sink was not reached. The sink URL is a reserved example.invalid address and is never intended to execute anything."
           : "The broker returned a response that should be inspected before treating this as a refusal proof.",
         data,
       });
     } catch {
       setTamperTest({ status: "error", title: "Tamper test unavailable", text: "The live broker endpoint could not be reached." });
-    }
-  };
-
-  const runRuntimeEvaluation = async () => {
-    setRuntimeRunning(true);
-    setRuntimeResult(null);
-
-    const stateChanged = runtimeState === "changed";
-
-    const runtimeStatePayload: Record<string, unknown> =
-      runtimePressure === "high"
-        ? { actions_last_minute: 75 }
-        : runtimePressure === "retries"
-          ? { retries_last_minute: 6 }
-          : { actions_last_minute: 8 };
-
-    if (stateChanged) {
-      runtimeStatePayload.authorized_state_version = "state-17";
-      runtimeStatePayload.current_state_version = "state-18";
-    }
-
-    try {
-      const response = await fetch(`${API_URL}/v1/runtime/evaluate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          agent_id: "cyraduct-public-demo",
-          action_type: "update_customer_record",
-          consequence_class: "generic_tool_call",
-          target: "crm",
-          resource: "customer/123",
-          reversibility: runtimeReversibility,
-          authority: runtimeAuthority,
-          policy_pack: "generic",
-          payload: {},
-          runtime_state: runtimeStatePayload,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setRuntimeResult({
-          ok: false,
-          error: data?.detail || "Live runtime request failed.",
-        });
-        return;
-      }
-
-      setRuntimeResult({
-        ok: true,
-        decision: data.decision,
-        reasons: data.reasons || [],
-        signals: data.signals || {},
-      });
-    } catch {
-      setRuntimeResult({
-        ok: false,
-        error: "The live CYRADUCT runtime could not be reached from this browser.",
-      });
-    } finally {
-      setRuntimeRunning(false);
     }
   };
 
@@ -305,23 +236,24 @@ export default function Home() {
             <img src="/logo-mark.png" alt="Cyraduct" className="h-8 w-auto" /><span className="text-lg">Cyraduct</span>
           </a>
           <nav className="hidden items-center gap-6 text-sm text-slate-300 md:flex">
-            <a href="#try" className="nav-link">Try CYRADUCT</a>
+            <a href="#finance" className="nav-link">Finance Guard</a>
             <a href="#model" className="nav-link">How it works</a>
             <a href="#verify" className="nav-link">Verify</a>
             <a href="#status" className="nav-link">Status</a>
             <a href="#tiers" className="nav-link">Deployment</a>
             <a href="#retention" className="nav-link">Why it sticks</a>
+            <a href="#partners" className="nav-link">Partners</a>
             <a href="#developers" className="nav-link">Developers</a>
             <a href={GITHUB_URL} target="_blank" rel="noreferrer" className="nav-link inline-flex items-center gap-1">GitHub <ExternalLink size={12} /></a>
           </nav>
-          <a href="#try" className="hidden rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-100 sm:inline-flex">Try CYRADUCT</a>
+          <a href="#finance" className="hidden rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-100 sm:inline-flex">See Finance Guard</a>
         </div>
       </header>
 
       <div className="border-b border-white/10 bg-[#050d18]">
         <div className="site-container flex flex-wrap items-center gap-x-5 gap-y-3 py-3 text-xs">
           <div className="inline-flex items-center gap-2 font-semibold text-slate-200"><span className={`h-2 w-2 rounded-full ${apiState === "online" ? "bg-cyan-300" : apiState === "offline" ? "bg-red-400" : "bg-slate-500"}`} /> API {apiState === "online" ? "Operational" : apiState === "offline" ? "Unavailable" : "Checking"}</div>
-          <span className="hidden text-slate-700 sm:inline">·</span><span className="text-slate-400">Protocol v0.2.0</span>
+          <span className="hidden text-slate-700 sm:inline">·</span><span className="text-slate-400">Protocol v0.2.1</span>
           <span className="text-slate-700">·</span><span className="text-slate-400">Ed25519 receipts</span>
           <span className="text-slate-700">·</span><span className="text-slate-400">3 enforcement tiers</span>
           <div className="ml-auto flex flex-wrap gap-3 font-medium">
@@ -343,11 +275,11 @@ export default function Home() {
                 The consequence boundary for <span className="text-cyan-300">AI agents.</span>
               </h1>
               <p className="mt-7 max-w-2xl text-lg leading-8 text-slate-300 sm:text-xl">
-                AI can decide to act. Cyraduct defines the conditions under which another system may rely on that action — with signed receipts, bounded expiry, independent revocation, and enforceable verification.
+                When an AI agent or finance workflow wants to act, Cyraduct makes the required evidence verifiable before another system relies on it — with signed receipts, bounded expiry, independent revocation, and enforceable verification.
               </p>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                <a href="#try" className="cta-primary">Try CYRADUCT <ArrowRight size={17} /></a>
-                <a href="#verify" className="cta-secondary">Prove the boundary</a>
+                <a href="#finance" className="cta-primary">Protect a financial action <ArrowRight size={17} /></a>
+                <a href={GITHUB_URL} target="_blank" rel="noreferrer" className="cta-secondary">Read the protocol <Github size={17} /></a>
               </div>
               <div className="mt-7 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-400">
                 <span className="inline-flex items-center gap-2"><Check size={15} className="text-cyan-300" /> Ed25519-signed</span>
@@ -359,11 +291,11 @@ export default function Home() {
             <div className="hero-terminal">
               <div className="terminal-top"><span /><span /><span /><div className="ml-auto text-[11px] text-slate-500">reliance / verified</div></div>
               <div className="p-6 font-mono text-[12px] leading-6 sm:text-sm">
-                <div className="text-slate-500">$ cyraduct evaluate --action wire_transfer</div>
+                <div className="text-slate-500">$ cyraduct evaluate --action update_vendor_bank_details</div>
                 <div className="mt-5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
                   <span className="text-slate-500">decision</span><span className="text-cyan-300">ALLOW</span>
-                  <span className="text-slate-500">consequence</span><span>financial_transfer</span>
-                  <span className="text-slate-500">policy</span><span>banking · v0.1.0</span>
+                  <span className="text-slate-500">consequence</span><span>vendor_master_change</span>
+                  <span className="text-slate-500">policy</span><span>finance_vendor_change_v1</span>
                   <span className="text-slate-500">receipt</span><span>rcpt_••••••••••••</span>
                   <span className="text-slate-500">expires</span><span>bounded · time-limited</span>
                   <span className="text-slate-500">signature</span><span className="text-cyan-300">Ed25519 ✓</span>
@@ -374,115 +306,29 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="try" className="section-shell border-b border-white/10 bg-[#06111f]">
-          <div className="site-container">
-            <div className="grid gap-10 lg:grid-cols-[.9fr_1.1fr] lg:items-start">
-              <div>
-                <SectionIntro
-                  kicker="Try CYRADUCT"
-                  title="See the execution decision change in real time."
-                  text="Change one runtime condition and CYRADUCT evaluates the proposed action against current authority, state, reversibility and runtime pressure."
-                />
-                <div className="mt-7 grid gap-3 sm:grid-cols-2">
-                  <div className="dark-card p-5">
-                    <div className="text-sm font-semibold text-slate-100">The action</div>
-                    <div className="mt-2 font-mono text-xs text-slate-400">update_customer_record</div>
-                    <div className="mt-1 text-xs text-slate-500">CRM · customer/123</div>
-                  </div>
-                  <div className="dark-card p-5">
-                    <div className="text-sm font-semibold text-slate-100">Consequence</div>
-                    <div className="mt-2 font-mono text-xs text-slate-400">generic_tool_call</div>
-                    <div className="mt-1 text-xs text-slate-500">Evaluated before execution</div>
-                  </div>
-                </div>
+        <section id="finance" className="section-shell border-b border-white/10 bg-[#091522]">
+          <div className="site-container grid gap-10 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
+            <div>
+              <div className="section-kicker">Cyraduct Finance Guard</div>
+              <h2 className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-.03em] sm:text-4xl">Stop risky vendor changes before they reach the payment system.</h2>
+              <p className="mt-5 max-w-2xl text-base leading-7 text-slate-300">Cyraduct gives AP, treasury, and finance automation a verifiable action boundary. A vendor-bank change or AI-initiated payment needs the right evidence, a trusted verification step, and a current receipt before a compliant sink acts.</p>
+              <div className="mt-7 flex flex-wrap gap-3">
+                <a href="mailto:hello@cyraduct.com?subject=Finance%20Guard%20pilot" className="cta-primary">Discuss a pilot <ArrowRight size={17} /></a>
+                <a href="#developers" className="cta-secondary">Build the adapter <Code2 size={17} /></a>
               </div>
-
-              <div className="dark-card p-6 sm:p-7">
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <RuntimeSelect
-                    label="Authority"
-                    value={runtimeAuthority}
-                    onChange={(value) => setRuntimeAuthority(value as typeof runtimeAuthority)}
-                    options={[
-                      ["present", "Present"],
-                      ["missing", "Missing"],
-                      ["unknown", "Unknown"],
-                      ["delegated", "Delegated"],
-                    ]}
-                  />
-                  <RuntimeSelect
-                    label="State"
-                    value={runtimeState}
-                    onChange={(value) => setRuntimeState(value as typeof runtimeState)}
-                    options={[
-                      ["current", "Current"],
-                      ["changed", "Changed after authorization"],
-                    ]}
-                  />
-                  <RuntimeSelect
-                    label="Runtime pressure"
-                    value={runtimePressure}
-                    onChange={(value) => setRuntimePressure(value as typeof runtimePressure)}
-                    options={[
-                      ["normal", "Normal"],
-                      ["high", "75 actions / minute"],
-                      ["retries", "6 retries / minute"],
-                    ]}
-                  />
-                  <RuntimeSelect
-                    label="Reversibility"
-                    value={runtimeReversibility}
-                    onChange={(value) => setRuntimeReversibility(value as typeof runtimeReversibility)}
-                    options={[
-                      ["reversible", "Reversible"],
-                      ["irreversible", "Irreversible"],
-                    ]}
-                  />
-                </div>
-
-                <button
-                  onClick={runRuntimeEvaluation}
-                  disabled={runtimeRunning}
-                  className="cta-primary mt-6 w-full justify-center disabled:cursor-wait disabled:opacity-60"
-                >
-                  {runtimeRunning ? "Evaluating live runtime…" : "Evaluate action"}
-                  <ArrowRight size={17} />
-                </button>
-
-                <div className="mt-7 rounded-2xl border border-white/10 bg-[#07111f] p-6">
-                  <div className="section-kicker">Runtime decision</div>
-
-                  {runtimeResult ? (
-                    runtimeResult.ok ? (
-                      <>
-                        <div className={`mt-3 text-4xl font-semibold tracking-[-.04em] ${decisionClass(runtimeResult.decision)}`}>
-                          {String(runtimeResult.decision || "unknown").toUpperCase()}
-                        </div>
-                        <p className="mt-4 text-sm leading-6 text-slate-400">
-                          {runtimeResult.reasons?.[0] || "The live runtime returned a decision."}
-                        </p>
-                        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                          {Object.entries(runtimeResult.signals || {}).map(([key, value]) => (
-                            <div key={key} className="rounded-xl border border-white/5 bg-black/20 p-3">
-                              <div className="text-[10px] uppercase tracking-[.12em] text-slate-600">{key}</div>
-                              <div className="mt-1 font-mono text-xs text-slate-300">{String(value)}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="mt-3 text-sm leading-6 text-red-300">{runtimeResult.error}</div>
-                    )
-                  ) : (
-                    <>
-                      <div className="mt-3 text-4xl font-semibold tracking-[-.04em] text-slate-500">READY</div>
-                      <p className="mt-4 text-sm leading-6 text-slate-400">
-                        Change a condition above and evaluate the action against the live CYRADUCT runtime.
-                      </p>
-                    </>
-                  )}
-                </div>
+              <p className="mt-5 text-xs leading-5 text-slate-500">Finance Guard is a reference application and pilot path. It does not move money, replace the ERP, autonomously approve payments, or claim regulatory compliance by itself.</p>
+            </div>
+            <div className="dark-card p-6 sm:p-7">
+              <div className="text-sm font-semibold text-slate-100">The control loop</div>
+              <div className="mt-6 space-y-4">
+                {[
+                  ["01", "Detect", "An email, ERP workflow, or agent proposes a consequential financial action."],
+                  ["02", "Verify", "Trusted evidence and human review establish what may be relied on."],
+                  ["03", "Receipt", "Cyraduct signs a time-limited, action-bound authorization."],
+                  ["04", "Enforce", "The ERP, bank, or payment sink verifies before execution."],
+                ].map(([number, title, text]) => <div key={number} className="flex gap-4 border-b border-white/10 pb-4 last:border-0 last:pb-0"><span className="font-mono text-xs text-cyan-300">{number}</span><div><div className="font-semibold text-slate-100">{title}</div><p className="mt-1 text-sm leading-6 text-slate-400">{text}</p></div></div>)}
               </div>
+              <div className="mt-6 rounded-xl border border-cyan-300/15 bg-cyan-300/[.04] px-4 py-3 font-mono text-xs leading-6 text-slate-300">update_vendor_bank_details<br /><span className="text-cyan-300">→ receipt required before sink acts</span></div>
             </div>
           </div>
         </section>
@@ -540,6 +386,8 @@ export default function Home() {
                 <input value={receiptId} onChange={(e) => setReceiptId(e.target.value)} onKeyDown={(e) => e.key === "Enter" && verifyReceipt()} placeholder="rcpt_..." className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-4 py-3 font-mono text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-cyan-300/40" />
                 <button onClick={verifyReceipt} disabled={verification.status === "checking"} className="cta-primary disabled:cursor-wait disabled:opacity-60">{verification.status === "checking" ? "Checking…" : "Verify receipt"}</button>
               </div>
+              <button onClick={createLiveTestReceipt} disabled={verification.status === "checking"} className="mt-3 inline-flex items-center gap-2 rounded-full border border-cyan-300/25 px-4 py-2.5 text-sm font-semibold text-cyan-200 transition hover:border-cyan-300/50 hover:bg-cyan-300/[.05] disabled:opacity-50"><Zap size={15} /> Create a live test receipt</button>
+              <p className="mt-2 text-xs leading-5 text-slate-500">This evaluates a synthetic vendor-change action only. It does not contact a bank, modify an ERP, or move money.</p>
               <VerificationPanel state={verification} />
               <div className="mt-7 border-t border-white/10 pt-6">
                 <div className="flex items-start gap-3"><ShieldCheck size={18} className="mt-0.5 text-cyan-300" /><div><div className="font-semibold">Break the boundary</div><p className="mt-1 text-sm leading-6 text-slate-400">Run a safe refusal test: the same receipt is presented with a deliberately different action. The sink target is a reserved <span className="font-mono text-slate-300">example.invalid</span> address, so this lab never intends to execute a real external action.</p></div></div>
@@ -637,9 +485,21 @@ export default function Home() {
           </div>
         </section>
 
+        <section id="partners" className="section-shell border-y border-white/10 bg-[#091522]">
+          <div className="site-container grid gap-10 lg:grid-cols-[1fr_.9fr] lg:items-center">
+            <div>
+              <div className="section-kicker">Partnerships</div>
+              <h2 className="mt-3 text-3xl font-semibold tracking-[-.03em] sm:text-4xl">Bring a consequence boundary to the systems you already operate.</h2>
+              <p className="mt-4 max-w-2xl text-base leading-7 text-slate-400">We are looking for AP platforms, ERP and payment providers, agent-framework teams, security consultancies, and design partners who want receipts that customers can verify independently.</p>
+              <div className="mt-7 flex flex-wrap gap-3"><a href="mailto:hello@cyraduct.com?subject=Cyraduct%20partnership" className="cta-primary">Start a partnership conversation <ArrowRight size={17} /></a><a href="#developers" className="cta-secondary">Self-host the protocol <Github size={17} /></a></div>
+            </div>
+            <div className="dark-card p-6 sm:p-7"><div className="text-sm font-semibold text-slate-100">Good partnership fits</div><div className="mt-5 space-y-3 text-sm leading-6 text-slate-300">{["ERP, AP, bank, or treasury sink integration", "Agent platform or framework adapter", "Security, GRC, or assurance implementation", "Design partner for Finance Guard or another high-consequence workflow"].map((item) => <div key={item} className="flex gap-3"><Check size={16} className="mt-1 shrink-0 text-cyan-300" /><span>{item}</span></div>)}</div><p className="mt-6 border-t border-white/10 pt-5 text-xs leading-5 text-slate-500">No exclusive trust is required: the public key, receipt format, standalone verifier, and conformance fixtures are inspectable.</p></div>
+          </div>
+        </section>
+
         <section id="developers" className="section-shell border-y border-white/10 bg-[#091522]">
           <div className="site-container grid gap-12 lg:grid-cols-[1fr_.9fr] lg:items-center">
-            <div><div className="section-kicker">Build with it</div><h2 className="mt-3 text-3xl font-semibold tracking-[-.03em] sm:text-4xl">A protocol surface for developers, platform teams and evaluators.</h2><p className="mt-4 max-w-2xl text-base leading-7 text-slate-400">Use the reference implementation, inspect OpenAPI, run conformance fixtures, fetch the public signing key, and integrate the reliance check where your action actually crosses a consequence boundary.</p><div className="mt-7 flex flex-wrap gap-3"><a href={`${API_URL}/docs`} target="_blank" rel="noreferrer" className="cta-primary">Open API docs <ExternalLink size={17} /></a><a href={`${API_URL}/openapi.json`} target="_blank" rel="noreferrer" className="cta-secondary">Open OpenAPI <ExternalLink size={17} /></a><a href={GITHUB_URL} target="_blank" rel="noreferrer" className="cta-secondary">Open GitHub <Github size={17} /></a></div>
+              <div><div className="section-kicker">Build with it</div><h2 className="mt-3 text-3xl font-semibold tracking-[-.03em] sm:text-4xl">Self-host the boundary. Verify without trusting Cyraduct.</h2><p className="mt-4 max-w-2xl text-base leading-7 text-slate-400">Use the reference implementation, run the live demo, inspect OpenAPI, fetch the public signing key, and verify receipts locally. Your sink can enforce the check without trusting Cyraduct’s server at execution time.</p><div className="mt-7 flex flex-wrap gap-3"><a href={`${API_URL}/docs`} target="_blank" rel="noreferrer" className="cta-primary">Open API docs <ExternalLink size={17} /></a><a href={`${API_URL}/openapi.json`} target="_blank" rel="noreferrer" className="cta-secondary">Open OpenAPI <ExternalLink size={17} /></a><a href={GITHUB_URL} target="_blank" rel="noreferrer" className="cta-secondary">Open GitHub <Github size={17} /></a></div>
               <div className="mt-8 grid gap-3 sm:grid-cols-2">
                 <a href={`${API_URL}/v1/conformance/fixtures`} target="_blank" rel="noreferrer" className="developer-link"><FileCheck2 size={16} className="text-cyan-300" /><span><b>Conformance fixtures</b><small>Inspect published test vectors.</small></span></a>
                 <a href={`${API_URL}/v1/public-key`} target="_blank" rel="noreferrer" className="developer-link"><KeyRound size={16} className="text-cyan-300" /><span><b>Public signing key</b><small>Verify receipts independently.</small></span></a>
