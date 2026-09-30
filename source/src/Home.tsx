@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   ArrowRight,
   Check,
@@ -87,6 +87,9 @@ export default function Home() {
   const [receiptId, setReceiptId] = useState("");
   const [verification, setVerification] = useState<VerificationState>({ status: "idle" });
   const [tamperTest, setTamperTest] = useState<VerificationState>({ status: "idle" });
+  const [partnerForm, setPartnerForm] = useState<PartnerFormState>({ name: "", company: "", email: "", role: "", partner_type: "AI Platform", message: "" });
+  const [partnerStatus, setPartnerStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
+  const [partnerMessage, setPartnerMessage] = useState("");
 
   useEffect(() => {
     const check = async (path: string, key: "publicKey" | "fixtures" | "openapi") => {
@@ -223,6 +226,27 @@ export default function Home() {
       });
     } catch {
       setTamperTest({ status: "error", title: "Tamper test unavailable", text: "The live broker endpoint could not be reached." });
+    }
+  };
+
+  const submitPartnerRequest = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setPartnerStatus("sending");
+    setPartnerMessage("");
+    try {
+      const response = await fetch(`${API_URL}/api/partners`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(partnerForm),
+      });
+      const data = await response.json();
+      if (!response.ok || data.success !== true) throw new Error(data?.detail?.[0]?.msg || data?.message || "Unable to submit partnership request");
+      setPartnerStatus("success");
+      setPartnerMessage("Thank you. The CYRADUCT team will review your partnership request.");
+      setPartnerForm({ name: "", company: "", email: "", role: "", partner_type: "AI Platform", message: "" });
+    } catch (error) {
+      setPartnerStatus("error");
+      setPartnerMessage(error instanceof Error ? error.message : "The partnership form is temporarily unavailable. Please email hello@cyraduct.com.");
     }
   };
 
@@ -486,14 +510,54 @@ export default function Home() {
         </section>
 
         <section id="partners" className="section-shell border-y border-white/10 bg-[#091522]">
-          <div className="site-container grid gap-10 lg:grid-cols-[1fr_.9fr] lg:items-center">
-            <div>
-              <div className="section-kicker">Partnerships</div>
-              <h2 className="mt-3 text-3xl font-semibold tracking-[-.03em] sm:text-4xl">Bring a consequence boundary to the systems you already operate.</h2>
-              <p className="mt-4 max-w-2xl text-base leading-7 text-slate-400">We are looking for AP platforms, ERP and payment providers, agent-framework teams, security consultancies, and design partners who want receipts that customers can verify independently.</p>
-              <div className="mt-7 flex flex-wrap gap-3"><a href="mailto:hello@cyraduct.com?subject=Cyraduct%20partnership" className="cta-primary">Start a partnership conversation <ArrowRight size={17} /></a><a href="#developers" className="cta-secondary">Self-host the protocol <Github size={17} /></a></div>
+          <div className="site-container">
+            <div className="max-w-3xl">
+              <div className="section-kicker">Partner ecosystem</div>
+              <h2 className="mt-3 text-3xl font-semibold tracking-[-.03em] sm:text-5xl">Partner with CYRADUCT</h2>
+              <p className="mt-4 text-lg leading-8 text-slate-300">Help define the reliability layer for consequential AI systems.</p>
+              <p className="mt-4 max-w-3xl text-base leading-7 text-slate-400">Cyraduct is being built with the teams that have to make AI actions trustworthy in production: the platforms that create them, the enterprises that rely on them, and the researchers who make the protocol inspectable.</p>
             </div>
-            <div className="dark-card p-6 sm:p-7"><div className="text-sm font-semibold text-slate-100">Good partnership fits</div><div className="mt-5 space-y-3 text-sm leading-6 text-slate-300">{["ERP, AP, bank, or treasury sink integration", "Agent platform or framework adapter", "Security, GRC, or assurance implementation", "Design partner for Finance Guard or another high-consequence workflow"].map((item) => <div key={item} className="flex gap-3"><Check size={16} className="mt-1 shrink-0 text-cyan-300" /><span>{item}</span></div>)}</div><p className="mt-6 border-t border-white/10 pt-5 text-xs leading-5 text-slate-500">No exclusive trust is required: the public key, receipt format, standalone verifier, and conformance fixtures are inspectable.</p></div>
+            <div className="mt-10 grid gap-4 lg:grid-cols-3">
+              {[{
+                title: "AI Platform Builders",
+                text: "Integrate CYRADUCT boundary verification into agent systems.",
+                cta: "Become an integration partner",
+                type: "AI Platform",
+                icon: Network,
+              }, {
+                title: "Enterprise AI Teams",
+                text: "Evaluate AI action reliability and governance readiness.",
+                cta: "Request partnership discussion",
+                type: "Enterprise AI",
+                icon: ShieldCheck,
+              }, {
+                title: "Researchers and Standards Groups",
+                text: "Collaborate on open protocol development.",
+                cta: "Collaborate with CYRADUCT",
+                type: "Research",
+                icon: Code2,
+              }].map(({ title, text, cta, type, icon: Icon }) => <article key={title} className="partner-track dark-card p-6"><Icon size={20} className="text-cyan-300" /><h3 className="mt-6 text-xl font-semibold">{title}</h3><p className="mt-3 min-h-14 text-sm leading-6 text-slate-400">{text}</p><a href="#partner-form" onClick={() => setPartnerForm((current) => ({ ...current, partner_type: type }))} className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-cyan-200 hover:text-white">{cta} <ArrowRight size={15} /></a></article>)}
+            </div>
+            <div className="mt-10 grid gap-10 lg:grid-cols-[.9fr_1.1fr] lg:items-start">
+              <div className="dark-card p-6 sm:p-8">
+                <div className="section-kicker">What happens next</div>
+                <h3 className="mt-3 text-2xl font-semibold">Start with a concrete boundary.</h3>
+                <div className="mt-6 space-y-4 text-sm leading-6 text-slate-300">{["Choose one consequential workflow or integration surface.", "Inspect the protocol, public key, fixtures, and reference implementation.", "Define a focused design-partner path with measurable verification outcomes."].map((item, index) => <div key={item} className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-cyan-300/30 text-xs font-bold text-cyan-200">{index + 1}</span><span>{item}</span></div>)}</div>
+                <p className="mt-7 border-t border-white/10 pt-5 text-xs leading-5 text-slate-500">No exclusive trust is required: the receipt format, public signing key, standalone verifier, and conformance fixtures remain inspectable.</p>
+              </div>
+              <form id="partner-form" onSubmit={submitPartnerRequest} className="dark-card p-6 sm:p-8">
+                <div className="section-kicker">Partner intake</div>
+                <h3 className="mt-3 text-2xl font-semibold">Tell us where the boundary matters.</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-400">A short, specific message helps us route your request to the right integration or research conversation.</p>
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  {[["name", "Full name", "Ada Lovelace", "text"], ["company", "Company", "Your organization", "text"], ["email", "Work email", "you@company.com", "email"], ["role", "Role", "CTO, platform lead, researcher…", "text"]].map(([name, label, placeholder, type]) => <label key={name} className="block text-sm"><span className="font-medium text-slate-200">{label}</span><input required name={name} type={type} value={partnerForm[name as keyof PartnerFormState]} onChange={(event) => setPartnerForm((current) => ({ ...current, [name]: event.target.value }))} placeholder={placeholder} className="partner-input mt-2" /></label>)}
+                  <label className="block text-sm sm:col-span-2"><span className="font-medium text-slate-200">Partner type</span><select required name="partner_type" value={partnerForm.partner_type} onChange={(event) => setPartnerForm((current) => ({ ...current, partner_type: event.target.value }))} className="partner-input mt-2"><option>AI Platform</option><option>Enterprise AI</option><option>Research</option><option>Standards Organization</option></select></label>
+                  <label className="block text-sm sm:col-span-2"><span className="font-medium text-slate-200">What would you like to explore?</span><textarea required minLength={20} name="message" value={partnerForm.message} onChange={(event) => setPartnerForm((current) => ({ ...current, message: event.target.value }))} placeholder="Describe the workflow, integration surface, or research question…" rows={4} className="partner-input mt-2 resize-y" /></label>
+                </div>
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center"><button type="submit" disabled={partnerStatus === "sending"} className="cta-primary disabled:cursor-wait disabled:opacity-60">{partnerStatus === "sending" ? "Sending…" : "Request Partnership"} <ArrowRight size={17} /></button><span className="text-xs text-slate-500">We will only use these details to respond to this request.</span></div>
+                {partnerMessage && <div role="status" className={`mt-5 rounded-xl border p-4 text-sm leading-6 ${partnerStatus === "success" ? "border-cyan-300/20 bg-cyan-300/[.04] text-cyan-100" : "border-red-300/20 bg-red-300/[.04] text-red-100"}`}>{partnerMessage}</div>}
+              </form>
+            </div>
           </div>
         </section>
 
@@ -521,6 +585,7 @@ export default function Home() {
 }
 
 type VerificationState = { status: "idle" | "checking" | "valid" | "invalid" | "error"; title?: string; text?: string; data?: unknown };
+type PartnerFormState = { name: string; company: string; email: string; role: string; partner_type: string; message: string };
 
 function VerificationPanel({ state, compact = false }: { state: VerificationState; compact?: boolean }) {
   if (state.status === "idle") return null;
