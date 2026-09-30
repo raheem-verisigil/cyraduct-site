@@ -492,7 +492,88 @@ export default function Home() {
 
   </div>
 </section>
+<section id="partners" className="site-container py-24">
+  <div className="rounded-3xl border border-cyan-300/20 bg-gradient-to-br from-cyan-300/[.08] to-transparent p-8 sm:p-12">
 
+    <div className="max-w-3xl">
+
+      <div className="section-kicker">
+        DESIGN PARTNERS
+      </div>
+
+      <h2 className="mt-3 text-3xl font-semibold tracking-[-.03em] sm:text-5xl">
+        Help define the execution safety layer for AI agents.
+      </h2>
+
+      <p className="mt-5 text-base leading-7 text-slate-300">
+        CYRADUCT is working with teams building consequential AI systems.
+        We are selecting engineering teams that want to test real AI
+        workflows at the action boundary.
+      </p>
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-2">
+
+        <div className="rounded-2xl border border-white/10 p-5">
+          <h3 className="font-semibold text-white">
+            Partner testing areas
+          </h3>
+
+          <ul className="mt-4 space-y-2 text-sm text-slate-400">
+            <li>✓ AI agents making real decisions</li>
+            <li>✓ Autonomous workflows</li>
+            <li>✓ High consequence actions</li>
+            <li>✓ Enterprise AI operations</li>
+          </ul>
+        </div>
+
+
+        <div className="rounded-2xl border border-white/10 p-5">
+          <h3 className="font-semibold text-white">
+            What partners receive
+          </h3>
+
+          <ul className="mt-4 space-y-2 text-sm text-slate-400">
+            <li>✓ Early runtime access</li>
+            <li>✓ Direct engineering collaboration</li>
+            <li>✓ Architecture review</li>
+            <li>✓ Integration support</li>
+            <li>✓ Influence on protocol evolution</li>
+          </ul>
+        </div>
+
+      </div>
+
+
+      <div className="mt-8">
+
+        <h3 className="font-semibold text-white">
+          What we ask
+        </h3>
+
+        <ul className="mt-3 space-y-2 text-sm text-slate-400">
+          <li>• One real AI workflow</li>
+          <li>• Technical feedback</li>
+          <li>• Deployment testing</li>
+        </ul>
+
+      </div>
+
+
+      <div className="mt-8">
+
+        <a
+          href="mailto:partners@cyraduct.com"
+          className="cta-primary inline-flex items-center gap-2"
+        >
+          Apply as Design Partner
+        </a>
+
+      </div>
+
+    </div>
+
+  </div>
+</section>
 <footer className="border-t border-white/10 bg-[#07111f]"><div className="site-container flex flex-col gap-5 py-8 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between"><div><span className="font-semibold text-slate-300">Cyraduct</span> · open, vendor-neutral reliance and consequence-boundary protocol for AI agent actions.</div><div className="flex gap-5"><a href="#model" className="hover:text-slate-200">Protocol</a><a href="#verify" className="hover:text-slate-200">Verify</a><a href={GITHUB_URL} target="_blank" rel="noreferrer" className="hover:text-slate-200">GitHub</a></div></div></footer>
     </div>
   );
