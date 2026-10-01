@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ArrowRight,
   Check,
@@ -22,6 +22,31 @@ import {
 
 const API_URL = import.meta.env.VITE_CYRADUCT_API_URL || "https://api.cyraduct.com";
 const GITHUB_URL = "https://github.com/raheem-verisigil/cyraduct";
+const ANALYTICS_URL = `${API_URL}/api/analytics/events`;
+
+type Attribution = { utm_source?: string; utm_medium?: string; utm_campaign?: string; utm_content?: string; landing_path?: string };
+type AnalyticsEventName = "audience_route_click" | "finance_cta_click" | "technical_asset_click" | "verification_lab_start" | "partner_form_start" | "partner_form_submit" | "partner_form_error" | "outbound_click";
+
+function readAttribution(): Attribution {
+  if (typeof window === "undefined") return {};
+  const params = new URLSearchParams(window.location.search);
+  const read = (key: string, max: number) => {
+    const value = params.get(key)?.trim();
+    return value ? value.slice(0, max) : undefined;
+  };
+  return {
+    utm_source: read("utm_source", 80),
+    utm_medium: read("utm_medium", 80),
+    utm_campaign: read("utm_campaign", 120),
+    utm_content: read("utm_content", 120),
+    landing_path: window.location.pathname.slice(0, 200) || "/",
+  };
+}
+
+function trackEvent(event: AnalyticsEventName, properties: Record<string, string> = {}, attribution: Attribution = {}) {
+  const payload = { event, properties: { ...properties, ...attribution } };
+  void fetch(ANALYTICS_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), keepalive: true }).catch(() => undefined);
+}
 
 const tiers = [
   {
@@ -80,10 +105,10 @@ const retentionLayers = [
 ];
 
 const audiencePaths = [
-  { label: "Finance & AP teams", detail: "Protect supplier and payment actions", href: "#finance", cta: "See Finance Guard", icon: ShieldCheck },
-  { label: "Procurement systems", detail: "Map the adapter and sink boundary", href: "#developers", cta: "View integration path", icon: Network },
-  { label: "Security & assurance", detail: "Verify receipts and refusal behavior", href: "#verify", cta: "Run the verification lab", icon: LockKeyhole },
-  { label: "Partners & researchers", detail: "Explore an open design-partner path", href: "#partners", cta: "Start async outreach", icon: Code2 },
+  { label: "Finance & AP teams", detail: "Protect supplier and payment actions", audience: "finance_ap", destination: "finance", href: "#finance", cta: "See Finance Guard", icon: ShieldCheck },
+  { label: "Procurement systems", detail: "Map the adapter and sink boundary", audience: "procurement_systems", destination: "developers", href: "#developers", cta: "View integration path", icon: Network },
+  { label: "Security & assurance", detail: "Verify receipts and refusal behavior", audience: "security_assurance", destination: "verify", href: "#verify", cta: "Run the verification lab", icon: LockKeyhole },
+  { label: "Partners & researchers", detail: "Explore an open design-partner path", audience: "partners_research", destination: "partners", href: "#partners", cta: "Start async outreach", icon: Code2 },
 ];
 
 export default function Home() {
@@ -97,6 +122,8 @@ export default function Home() {
   const [partnerForm, setPartnerForm] = useState<PartnerFormState>({ name: "", company: "", email: "", role: "", partner_type: "AI Platform", message: "" });
   const [partnerStatus, setPartnerStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [partnerMessage, setPartnerMessage] = useState("");
+  const [attribution] = useState<Attribution>(readAttribution);
+  const partnerFormStarted = useRef(false);
 
   useEffect(() => {
     const check = async (path: string, key: "publicKey" | "fixtures" | "openapi") => {
@@ -116,6 +143,7 @@ export default function Home() {
   }, []);
 
   const runConformance = async () => {
+    trackEvent("verification_lab_start", { action: "conformance" }, attribution);
     setRunning(true);
     setResult(null);
     try {
@@ -134,6 +162,7 @@ export default function Home() {
   };
 
   const verifyReceipt = async () => {
+    trackEvent("verification_lab_start", { action: "verify_receipt" }, attribution);
     const id = receiptId.trim();
     if (!id) {
       setVerification({ status: "error", title: "Enter a receipt ID", text: "Paste a Cyraduct receipt ID to query the live verification endpoint." });
@@ -159,6 +188,7 @@ export default function Home() {
   };
 
   const createLiveTestReceipt = async () => {
+    trackEvent("verification_lab_start", { action: "create_test_receipt" }, attribution);
     setVerification({ status: "checking" });
     try {
       const response = await fetch(`${API_URL}/v1/attested/evaluate`, {
@@ -201,6 +231,7 @@ export default function Home() {
   };
 
   const runTamperTest = async () => {
+    trackEvent("verification_lab_start", { action: "mismatch_test" }, attribution);
     const id = receiptId.trim();
     if (!id) {
       setTamperTest({ status: "error", title: "Enter a receipt ID first", text: "The test uses the same receipt you are verifying." });
@@ -244,15 +275,17 @@ export default function Home() {
       const response = await fetch(`${API_URL}/api/partners`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(partnerForm),
+        body: JSON.stringify({ ...partnerForm, ...attribution }),
       });
       const data = await response.json();
       if (!response.ok || data.success !== true) throw new Error(data?.detail?.[0]?.msg || data?.message || "Unable to submit partnership request");
       setPartnerStatus("success");
       setPartnerMessage("Thank you. The CYRADUCT team will review your partnership request.");
+      trackEvent("partner_form_submit", { partner_type: partnerForm.partner_type, form_version: "2026-10-01" }, attribution);
       setPartnerForm({ name: "", company: "", email: "", role: "", partner_type: "AI Platform", message: "" });
     } catch (error) {
       setPartnerStatus("error");
+      trackEvent("partner_form_error", { error_category: "server" }, attribution);
       setPartnerMessage(error instanceof Error ? error.message : "The partnership form is temporarily unavailable. Please email hello@cyraduct.com.");
     }
   };
@@ -342,7 +375,7 @@ export default function Home() {
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div className="max-w-sm"><div className="section-kicker">Find your entry point</div><p className="mt-2 text-sm leading-6 text-slate-400">Choose the path closest to your role. Every route leads to a concrete proof, integration, or written partnership action.</p></div>
               <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {audiencePaths.map(({ label, detail, href, cta, icon: Icon }) => <a key={label} href={href} className="audience-link group"><Icon size={17} className="mt-0.5 shrink-0 text-cyan-300" /><span><strong>{label}</strong><small>{detail}</small><em>{cta} <ArrowRight size={12} /></em></span></a>)}
+                {audiencePaths.map(({ label, detail, audience, destination, href, cta, icon: Icon }) => <a key={label} href={href} onClick={() => trackEvent("audience_route_click", { audience, destination }, attribution)} className="audience-link group"><Icon size={17} className="mt-0.5 shrink-0 text-cyan-300" /><span><strong>{label}</strong><small>{detail}</small><em>{cta} <ArrowRight size={12} /></em></span></a>)}
               </div>
             </div>
           </div>
@@ -355,10 +388,10 @@ export default function Home() {
               <h2 className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-.03em] sm:text-4xl">Stop risky vendor changes before they reach the payment system.</h2>
               <p className="mt-5 max-w-2xl text-base leading-7 text-slate-300">Cyraduct gives AP, treasury, and finance automation a verifiable action boundary. A vendor-bank change or AI-initiated payment needs the right evidence, a trusted verification step, and a current receipt before a compliant sink acts.</p>
               <div className="mt-7 flex flex-wrap gap-3">
-                <a href="#partner-form" onClick={() => setPartnerForm((current) => ({ ...current, partner_type: "Hospitality Finance / AP" }))} className="cta-primary">Request an async workflow review <ArrowRight size={17} /></a>
-                <a href="#developers" className="cta-secondary">Build the adapter <Code2 size={17} /></a>
+                <a href="#partner-form" onClick={() => { trackEvent("finance_cta_click", { cta: "async_workflow_review" }, attribution); setPartnerForm((current) => ({ ...current, partner_type: "Hospitality Finance / AP" })); }} className="cta-primary">Request an async workflow review <ArrowRight size={17} /></a>
+                <a href="#developers" onClick={() => trackEvent("finance_cta_click", { cta: "build_adapter" }, attribution)} className="cta-secondary">Build the adapter <Code2 size={17} /></a>
               </div>
-              <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs font-medium text-slate-500"><a href="#partners" className="text-cyan-200 hover:text-white">Share one AP workflow →</a><a href="mailto:hello@cyraduct.com?subject=Cyraduct%20Finance%20Guard%20question" className="text-slate-400 hover:text-white">hello@cyraduct.com</a></div>
+              <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs font-medium text-slate-500"><a href="#partners" onClick={() => trackEvent("finance_cta_click", { cta: "share_workflow" }, attribution)} className="text-cyan-200 hover:text-white">Share one AP workflow →</a><a href="mailto:hello@cyraduct.com?subject=Cyraduct%20Finance%20Guard%20question" onClick={() => trackEvent("finance_cta_click", { cta: "email_team" }, attribution)} className="text-slate-400 hover:text-white">hello@cyraduct.com</a></div>
               <p className="mt-5 text-xs leading-5 text-slate-500">Finance Guard is a reference application and pilot path. It does not move money, replace the ERP, autonomously approve payments, or claim regulatory compliance by itself.</p>
             </div>
             <div className="dark-card p-6 sm:p-7">
@@ -569,7 +602,7 @@ export default function Home() {
                 <h3 className="mt-3 text-2xl font-semibold">Tell us where the boundary matters.</h3>
                 <p className="mt-3 text-sm leading-6 text-slate-400">A short, specific message helps us route your request to the right integration or research conversation.</p>
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                  {[["name", "Full name", "Ada Lovelace", "text"], ["company", "Company", "Your organization", "text"], ["email", "Work email", "you@company.com", "email"], ["role", "Role", "CTO, platform lead, researcher…", "text"]].map(([name, label, placeholder, type]) => <label key={name} className="block text-sm"><span className="font-medium text-slate-200">{label}</span><input required name={name} type={type} value={partnerForm[name as keyof PartnerFormState]} onChange={(event) => setPartnerForm((current) => ({ ...current, [name]: event.target.value }))} placeholder={placeholder} className="partner-input mt-2" /></label>)}
+                  {[["name", "Full name", "Ada Lovelace", "text"], ["company", "Company", "Your organization", "text"], ["email", "Work email", "you@company.com", "email"], ["role", "Role", "CTO, platform lead, researcher…", "text"]].map(([name, label, placeholder, type]) => <label key={name} className="block text-sm"><span className="font-medium text-slate-200">{label}</span><input required name={name} type={type} onFocus={() => { if (!partnerFormStarted.current) { partnerFormStarted.current = true; trackEvent("partner_form_start", { partner_type: partnerForm.partner_type }, attribution); } }} value={partnerForm[name as keyof PartnerFormState]} onChange={(event) => setPartnerForm((current) => ({ ...current, [name]: event.target.value }))} placeholder={placeholder} className="partner-input mt-2" /></label>)}
                   <label className="block text-sm sm:col-span-2"><span className="font-medium text-slate-200">Partner type</span><select required name="partner_type" value={partnerForm.partner_type} onChange={(event) => setPartnerForm((current) => ({ ...current, partner_type: event.target.value }))} className="partner-input mt-2"><option>AI Platform</option><option>Enterprise AI</option><option>Hospitality Finance / AP</option><option>Research</option><option>Standards Organization</option></select></label>
                   <label className="block text-sm sm:col-span-2"><span className="font-medium text-slate-200">What would you like to explore?</span><textarea required minLength={20} name="message" value={partnerForm.message} onChange={(event) => setPartnerForm((current) => ({ ...current, message: event.target.value }))} placeholder="Describe the workflow, integration surface, or research question…" rows={4} className="partner-input mt-2 resize-y" /></label>
                 </div>
@@ -583,10 +616,10 @@ export default function Home() {
 
         <section id="developers" className="section-shell border-y border-white/10 bg-[#091522]">
           <div className="site-container grid gap-12 lg:grid-cols-[1fr_.9fr] lg:items-center">
-              <div><div className="section-kicker">Build with it</div><h2 className="mt-3 text-3xl font-semibold tracking-[-.03em] sm:text-4xl">Self-host the boundary. Verify without trusting Cyraduct.</h2><p className="mt-4 max-w-2xl text-base leading-7 text-slate-400">Use the reference implementation, run the live demo, inspect OpenAPI, fetch the public signing key, and verify receipts locally. Your sink can enforce the check without trusting Cyraduct’s server at execution time.</p><div className="mt-7 flex flex-wrap gap-3"><a href={`${API_URL}/docs`} target="_blank" rel="noreferrer" className="cta-primary">Open API docs <ExternalLink size={17} /></a><a href={`${API_URL}/openapi.json`} target="_blank" rel="noreferrer" className="cta-secondary">Open OpenAPI <ExternalLink size={17} /></a><a href={GITHUB_URL} target="_blank" rel="noreferrer" className="cta-secondary">Open GitHub <Github size={17} /></a></div>
+              <div><div className="section-kicker">Build with it</div><h2 className="mt-3 text-3xl font-semibold tracking-[-.03em] sm:text-4xl">Self-host the boundary. Verify without trusting Cyraduct.</h2><p className="mt-4 max-w-2xl text-base leading-7 text-slate-400">Use the reference implementation, run the live demo, inspect OpenAPI, fetch the public signing key, and verify receipts locally. Your sink can enforce the check without trusting Cyraduct’s server at execution time.</p><div className="mt-7 flex flex-wrap gap-3"><a href={`${API_URL}/docs`} target="_blank" rel="noreferrer" onClick={() => trackEvent("technical_asset_click", { asset: "api_docs", source_section: "developers" }, attribution)} className="cta-primary">Open API docs <ExternalLink size={17} /></a><a href={`${API_URL}/openapi.json`} target="_blank" rel="noreferrer" onClick={() => trackEvent("technical_asset_click", { asset: "openapi", source_section: "developers" }, attribution)} className="cta-secondary">Open OpenAPI <ExternalLink size={17} /></a><a href={GITHUB_URL} target="_blank" rel="noreferrer" onClick={() => trackEvent("technical_asset_click", { asset: "github", source_section: "developers" }, attribution)} className="cta-secondary">Open GitHub <Github size={17} /></a></div>
               <div className="mt-8 grid gap-3 sm:grid-cols-2">
-                <a href={`${API_URL}/v1/conformance/fixtures`} target="_blank" rel="noreferrer" className="developer-link"><FileCheck2 size={16} className="text-cyan-300" /><span><b>Conformance fixtures</b><small>Inspect published test vectors.</small></span></a>
-                <a href={`${API_URL}/v1/public-key`} target="_blank" rel="noreferrer" className="developer-link"><KeyRound size={16} className="text-cyan-300" /><span><b>Public signing key</b><small>Verify receipts independently.</small></span></a>
+                <a href={`${API_URL}/v1/conformance/fixtures`} target="_blank" rel="noreferrer" onClick={() => trackEvent("technical_asset_click", { asset: "fixtures", source_section: "developers" }, attribution)} className="developer-link"><FileCheck2 size={16} className="text-cyan-300" /><span><b>Conformance fixtures</b><small>Inspect published test vectors.</small></span></a>
+                <a href={`${API_URL}/v1/public-key`} target="_blank" rel="noreferrer" onClick={() => trackEvent("technical_asset_click", { asset: "public_key", source_section: "developers" }, attribution)} className="developer-link"><KeyRound size={16} className="text-cyan-300" /><span><b>Public signing key</b><small>Verify receipts independently.</small></span></a>
                 <a href="#verify" className="developer-link"><ShieldCheck size={16} className="text-cyan-300" /><span><b>Verification lab</b><small>Test a receipt at the action boundary.</small></span></a>
                 <div className="developer-link developer-link-muted"><Code2 size={16} className="text-slate-500" /><span><b>SDK / CLI</b><small>Planned after the REST contract stabilizes.</small></span></div>
               </div></div>
