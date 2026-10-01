@@ -358,7 +358,7 @@ export default function Home() {
                 <a href="#partner-form" onClick={() => setPartnerForm((current) => ({ ...current, partner_type: "Hospitality Finance / AP" }))} className="cta-primary">Request an async workflow review <ArrowRight size={17} /></a>
                 <a href="#developers" className="cta-secondary">Build the adapter <Code2 size={17} /></a>
               </div>
-              <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs font-medium text-slate-500"><a href="#partners" className="text-cyan-200 hover:text-white">Share one AP workflow →</a><a href="mailto:hello@cyraduct.com?subject=Cyraduct%20Finance%20Guard%20question" className="text-slate-400 hover:text-white">Email the team</a></div>
+              <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs font-medium text-slate-500"><a href="#partners" className="text-cyan-200 hover:text-white">Share one AP workflow →</a><a href="mailto:hello@cyraduct.com?subject=Cyraduct%20Finance%20Guard%20question" className="text-slate-400 hover:text-white">hello@cyraduct.com</a></div>
               <p className="mt-5 text-xs leading-5 text-slate-500">Finance Guard is a reference application and pilot path. It does not move money, replace the ERP, autonomously approve payments, or claim regulatory compliance by itself.</p>
             </div>
             <div className="dark-card p-6 sm:p-7">
@@ -574,6 +574,7 @@ export default function Home() {
                   <label className="block text-sm sm:col-span-2"><span className="font-medium text-slate-200">What would you like to explore?</span><textarea required minLength={20} name="message" value={partnerForm.message} onChange={(event) => setPartnerForm((current) => ({ ...current, message: event.target.value }))} placeholder="Describe the workflow, integration surface, or research question…" rows={4} className="partner-input mt-2 resize-y" /></label>
                 </div>
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center"><button type="submit" disabled={partnerStatus === "sending"} className="cta-primary disabled:cursor-wait disabled:opacity-60">{partnerStatus === "sending" ? "Sending…" : "Request Partnership"} <ArrowRight size={17} /></button><span className="text-xs text-slate-500">We will only use these details to respond to this request.</span></div>
+                <p className="mt-4 text-xs text-slate-500">Prefer email? <a href="mailto:hello@cyraduct.com?subject=Cyraduct%20partnership" className="font-semibold text-cyan-200 hover:text-white">hello@cyraduct.com</a></p>
                 {partnerMessage && <div role="status" className={`mt-5 rounded-xl border p-4 text-sm leading-6 ${partnerStatus === "success" ? "border-cyan-300/20 bg-cyan-300/[.04] text-cyan-100" : "border-red-300/20 bg-red-300/[.04] text-red-100"}`}>{partnerMessage}</div>}
               </form>
             </div>
