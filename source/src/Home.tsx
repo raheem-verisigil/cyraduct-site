@@ -79,6 +79,13 @@ const retentionLayers = [
   ["Conformance ecosystem", "Create a path for infrastructure vendors and agent platforms to demonstrate Cyraduct compatibility."],
 ];
 
+const audiencePaths = [
+  { label: "Finance & AP teams", detail: "Protect supplier and payment actions", href: "#finance", cta: "See Finance Guard", icon: ShieldCheck },
+  { label: "Procurement systems", detail: "Map the adapter and sink boundary", href: "#developers", cta: "View integration path", icon: Network },
+  { label: "Security & assurance", detail: "Verify receipts and refusal behavior", href: "#verify", cta: "Run the verification lab", icon: LockKeyhole },
+  { label: "Partners & researchers", detail: "Explore an open design-partner path", href: "#partners", cta: "Start async outreach", icon: Code2 },
+];
+
 export default function Home() {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<unknown>(null);
@@ -330,6 +337,17 @@ export default function Home() {
           </div>
         </section>
 
+        <section aria-label="Choose your Cyraduct path" className="border-b border-white/10 bg-[#050d18]">
+          <div className="site-container py-8">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="max-w-sm"><div className="section-kicker">Find your entry point</div><p className="mt-2 text-sm leading-6 text-slate-400">Choose the path closest to your role. Every route leads to a concrete proof, integration, or written partnership action.</p></div>
+              <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {audiencePaths.map(({ label, detail, href, cta, icon: Icon }) => <a key={label} href={href} className="audience-link group"><Icon size={17} className="mt-0.5 shrink-0 text-cyan-300" /><span><strong>{label}</strong><small>{detail}</small><em>{cta} <ArrowRight size={12} /></em></span></a>)}
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section id="finance" className="section-shell border-b border-white/10 bg-[#091522]">
           <div className="site-container grid gap-10 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
             <div>
@@ -337,9 +355,10 @@ export default function Home() {
               <h2 className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-.03em] sm:text-4xl">Stop risky vendor changes before they reach the payment system.</h2>
               <p className="mt-5 max-w-2xl text-base leading-7 text-slate-300">Cyraduct gives AP, treasury, and finance automation a verifiable action boundary. A vendor-bank change or AI-initiated payment needs the right evidence, a trusted verification step, and a current receipt before a compliant sink acts.</p>
               <div className="mt-7 flex flex-wrap gap-3">
-                <a href="mailto:hello@cyraduct.com?subject=Finance%20Guard%20pilot" className="cta-primary">Discuss a pilot <ArrowRight size={17} /></a>
+                <a href="#partner-form" onClick={() => setPartnerForm((current) => ({ ...current, partner_type: "Hospitality Finance / AP" }))} className="cta-primary">Request an async workflow review <ArrowRight size={17} /></a>
                 <a href="#developers" className="cta-secondary">Build the adapter <Code2 size={17} /></a>
               </div>
+              <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs font-medium text-slate-500"><a href="#partners" className="text-cyan-200 hover:text-white">Share one AP workflow →</a><a href="mailto:hello@cyraduct.com?subject=Cyraduct%20Finance%20Guard%20question" className="text-slate-400 hover:text-white">Email the team</a></div>
               <p className="mt-5 text-xs leading-5 text-slate-500">Finance Guard is a reference application and pilot path. It does not move money, replace the ERP, autonomously approve payments, or claim regulatory compliance by itself.</p>
             </div>
             <div className="dark-card p-6 sm:p-7">
@@ -551,7 +570,7 @@ export default function Home() {
                 <p className="mt-3 text-sm leading-6 text-slate-400">A short, specific message helps us route your request to the right integration or research conversation.</p>
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
                   {[["name", "Full name", "Ada Lovelace", "text"], ["company", "Company", "Your organization", "text"], ["email", "Work email", "you@company.com", "email"], ["role", "Role", "CTO, platform lead, researcher…", "text"]].map(([name, label, placeholder, type]) => <label key={name} className="block text-sm"><span className="font-medium text-slate-200">{label}</span><input required name={name} type={type} value={partnerForm[name as keyof PartnerFormState]} onChange={(event) => setPartnerForm((current) => ({ ...current, [name]: event.target.value }))} placeholder={placeholder} className="partner-input mt-2" /></label>)}
-                  <label className="block text-sm sm:col-span-2"><span className="font-medium text-slate-200">Partner type</span><select required name="partner_type" value={partnerForm.partner_type} onChange={(event) => setPartnerForm((current) => ({ ...current, partner_type: event.target.value }))} className="partner-input mt-2"><option>AI Platform</option><option>Enterprise AI</option><option>Research</option><option>Standards Organization</option></select></label>
+                  <label className="block text-sm sm:col-span-2"><span className="font-medium text-slate-200">Partner type</span><select required name="partner_type" value={partnerForm.partner_type} onChange={(event) => setPartnerForm((current) => ({ ...current, partner_type: event.target.value }))} className="partner-input mt-2"><option>AI Platform</option><option>Enterprise AI</option><option>Hospitality Finance / AP</option><option>Research</option><option>Standards Organization</option></select></label>
                   <label className="block text-sm sm:col-span-2"><span className="font-medium text-slate-200">What would you like to explore?</span><textarea required minLength={20} name="message" value={partnerForm.message} onChange={(event) => setPartnerForm((current) => ({ ...current, message: event.target.value }))} placeholder="Describe the workflow, integration surface, or research question…" rows={4} className="partner-input mt-2 resize-y" /></label>
                 </div>
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center"><button type="submit" disabled={partnerStatus === "sending"} className="cta-primary disabled:cursor-wait disabled:opacity-60">{partnerStatus === "sending" ? "Sending…" : "Request Partnership"} <ArrowRight size={17} /></button><span className="text-xs text-slate-500">We will only use these details to respond to this request.</span></div>
